@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DocFill — Integration Showcase (record this for the demo video)</title>
+    <style>
+      :root { --brand: #2563eb; --bg: #0b1020; --code: #d7e0ff; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; min-height: 100vh; background: #f4f6fb;
+        font: 15px/1.5 system-ui, -apple-system, sans-serif; color: #111;
+      }
+      .topbar {
+        padding: 14px 24px; background: #fff; border-bottom: 1px solid #e5e7eb;
+        display: flex; align-items: center; justify-content: space-between;
+      }
+      .topbar h1 { font-size: 16px; margin: 0; }
+      .topbar .step-label { font-size: 13px; color: var(--brand); font-weight: 700; }
+      .split { display: grid; grid-template-columns: 1fr 1fr; min-height: calc(100vh - 53px); }
+      .pane { padding: 28px; overflow: auto; }
+      .pane.code { background: var(--bg); color: var(--code); }
+      .pane.preview { background: #fff; border-left: 1px solid #e5e7eb; }
+
+      .editor-label { font-size: 12px; color: #8fa2ff; margin-bottom: 10px; text-transform: uppercase; letter-spacing: .04em; }
+      pre.code-block {
+        margin: 0; font: 13px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
+        white-space: pre-wrap; word-break: break-word; min-height: 260px;
+      }
+      .cursor { display: inline-block; width: 8px; background: var(--code); animation: blink 1s step-end infinite; }
+      @keyframes blink { 50% { opacity: 0; } }
+
+      .preview h2 { margin: 0 0 4px; font-size: 20px; }
+      .preview .sub { color: #666; font-size: 13px; margin: 0 0 20px; }
+      label { display: block; margin: 14px 0 4px; font-weight: 600; font-size: 14px; }
+      input {
+        width: 100%; padding: 10px; font-size: 15px; border: 1px solid #cbd5e1; border-radius: 8px;
+      }
+      #btn-slot { min-height: 46px; margin-bottom: 6px; }
+
+      /* Widget styles are injected by the SDK itself; this just gives the slot some presence
+         before the button appears. */
+      .placeholder-hint {
+        font-size: 12px; color: #9ca3af; border: 1px dashed #d1d5db; border-radius: 8px;
+        padding: 10px 12px; display: inline-block;
+      }
+
+      .controls {
+        position: fixed; right: 20px; top: 16px; z-index: 10; display: flex; gap: 8px;
+      }
+      .controls button {
+        border: 0; border-radius: 8px; padding: 8px 14px; font: 600 13px system-ui, sans-serif;
+        cursor: pointer; background: #111; color: #fff;
+      }
+      .controls button.secondary { background: #e5e7eb; color: #111; }
+    </style>
+  </head>
+  <body>
+    <div class="topbar">
+      <h1>DocFill — Integration Showcase</h1>
+      <div class="step-label" id="step-label">Step 1 — tag your fields</div>
+    </div>
+
+    <div class="controls">
+      <button id="replay-btn" class="secondary" type="button">Replay animation</button>
+      <button id="skip-btn" type="button">Skip to end</button>
+    </div>
+
+    <div class="split">
+      <div class="pane code">
+        <div class="editor-label">index.html</div>
+        <pre class="code-block" id="code-out"><span class="cursor">&nbsp;</span></pre>
+      </div>
+
+      <div class="pane preview">
+        <h2>Onboarding Form</h2>
+        <p class="sub">A normal form. Watch the right panel update as the code on the left is typed.</p>
+
+        <div id="btn-slot">
+          <span class="placeholder-hint">Autofill button will appear here &rarr;</span>
+        </div>
+
+        <label>Full name</label>
+        <input type="text" data-docfill="identity.full_name" placeholder="Jane Doe" />
+
+        <label>PAN</label>
+        <input type="text" data-docfill="identity.pan" placeholder="ABCDE1234F" />
+
+        <label>12th marksheet</label>
+        <input type="file" data-docfill="education.12th_marksheet" />
+      </div>
+    </div>
+
+    <!-- Real SDK. Using the local build (widget ships in 1.2.0, not yet published to npm).
+         Once you `npm publish`, switch this to the pinned CDN URL, e.g.:
+         <script src="https://cdn.jsdelivr.net/npm/docfill-sdk@1.2.0/dist/index.global.js"></script> -->
+    <script src="../dist/index.global.js"></script>
+    <script>
+      const codeOut = document.getElementById('code-out');
+      const stepLabel = document.getElementById('step-label');
+      const btnSlot = document.getElementById('btn-slot');
+      let widget = null;
+
+      // The three snippets shown in the video script, typed out in sequence.
+      const STEP1 = `<input type="text" data-docfill="identity.full_name" />
+<input type="text" data-docfill="identity.pan" />
+<input type="file" data-docfill="education.12th_marksheet" />`;
+
+      const STEP2 = `
+
+<script src="https://cdn.jsdelivr.net/npm/docfill-sdk/dist/index.global.js"
+        data-docfill-form="onboarding-demo"><\/script>`;
+
+      const STEP3 = `
+
+// React equivalent:
+useEffect(() => {
+  const widget = DocFill.widget({ formId: 'onboarding-demo' });
+  return () => widget.destroy();
+}, []);`;
+
+      function escapeHtml(s) {
+        return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      }
+
+      function sleep(ms) {
+        return new Promise((r) => setTimeout(r, ms));
+      }
+
+      async function typeText(fullTextSoFar, addition, speed = 18) {
+        for (let i = 0; i <= addition.length; i++) {
+          codeOut.innerHTML =
+            escapeHtml(fullTextSoFar + addition.slice(0, i)) + '<span class="cursor">&nbsp;</span>';
+          await sleep(speed);
+        }
+        return fullTextSoFar + addition;
+      }
+
+      function mountRealWidget() {
+        if (widget) return;
+        btnSlot.querySelector('.placeholder-hint')?.remove();
+        widget = DocFill.widget({
+          formId: 'onboarding-demo',
+          target: '#btn-slot',
+        });
+      }
+
+      let running = false;
+      async function playAnimation() {
+        if (running) return;
+        running = true;
+        codeOut.innerHTML = '<span class="cursor">&nbsp;</span>';
+        btnSlot.innerHTML = '<span class="placeholder-hint">Autofill button will appear here &rarr;</span>';
+        if (widget) { widget.destroy(); widget = null; }
+
+        stepLabel.textContent = 'Step 1 \u2014 tag your fields';
+        let text = await typeText('', STEP1, 14);
+        await sleep(700);
+
+        stepLabel.textContent = 'Step 2 \u2014 one script tag, zero JavaScript';
+        text = await typeText(text, STEP2, 12);
+        mountRealWidget(); // the button appears the instant the script "runs"
+        await sleep(900);
+
+        stepLabel.textContent = 'Step 3 \u2014 or use it in React';
+        await typeText(text, STEP3, 10);
+
+        stepLabel.textContent = 'Done \u2014 npm install docfill-sdk';
+        running = false;
+      }
+
+      function skipToEnd() {
+        if (widget) { widget.destroy(); widget = null; }
+        codeOut.innerHTML = escapeHtml(STEP1 + STEP2 + STEP3) + '<span class="cursor">&nbsp;</span>';
+        stepLabel.textContent = 'Done \u2014 npm install docfill-sdk';
+        mountRealWidget();
+      }
+
+      document.getElementById('replay-btn').addEventListener('click', playAnimation);
+      document.getElementById('skip-btn').addEventListener('click', skipToEnd);
+
+      // Autoplay once on load, with a short delay so recording can start cleanly.
+      window.addEventListener('load', () => setTimeout(playAnimation, 600));
+    </script>
+  </body>
+</html>
