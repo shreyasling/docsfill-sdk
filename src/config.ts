@@ -11,4 +11,4 @@
  */
 export const DEFAULT_SUPABASE_URL = 'https://eovrcvoopynjhoxmetgx.supabase.co';
 export const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_9r21sMpAaoMIelRY2A6ROA_eX7CjJd2';
-export const DEFAULT_PWA_URL = 'https://docfill-pwa.example.app';
+export const DEFAULT_PWA_URL = 'https://docsfill-pwa.vercel.app';

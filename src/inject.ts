@@ -147,6 +147,9 @@ export async function injectPayload(
   opts: InjectOptions = {}
 ): Promise<Map<string, AttachedFile>> {
   const attached = new Map<string, AttachedFile>();
+  // Text tags fill instantly; file fetches run concurrently so a slow/failing
+  // file never blocks other files or the text values.
+  const fileJobs: Promise<void>[] = [];
 
   for (const { tag, element } of fields) {
     const field = payload[tag];
@@ -160,24 +163,29 @@ export async function injectPayload(
         fileUrl: field.fileUrl,
       };
       element.dataset.docfillFile = JSON.stringify(ref);
-
-      let injected = false;
-      if (element instanceof HTMLInputElement && element.type === 'file') {
-        injected = await injectRealFile(element, field, opts);
-      }
-      ref.injected = injected;
-
-      renderChip(
-        element,
-        injected ? `\u2713 Uploaded: ${field.fileName}` : `\u2713 Attached: ${field.fileName}`,
-        injected
-      );
       attached.set(tag, ref);
+
+      const label = (injected: boolean): string =>
+        injected ? `\u2713 Uploaded: ${field.fileName}` : `\u2713 Attached: ${field.fileName}`;
+
+      if (element instanceof HTMLInputElement && element.type === 'file') {
+        const input = element;
+        fileJobs.push(
+          injectRealFile(input, field, opts).then((injected) => {
+            ref.injected = injected;
+            renderChip(input, label(injected), injected);
+          })
+        );
+      } else {
+        ref.injected = false;
+        renderChip(element, label(false), false);
+      }
     } else {
       const value = (field as TextFieldPayload).value;
       setTextValue(element, value == null ? '' : String(value));
     }
   }
 
+  await Promise.all(fileJobs);
   return attached;
 }

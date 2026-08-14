@@ -47,6 +47,40 @@ passed to override the defaults.)
 
 > Never put a `sb_secret_...` / service-role key in form or PWA frontend code.
 
+## Quick start — the widget (easiest)
+
+Tag your inputs and add one line. The SDK renders the **"⚡ Autofill with DocFill" button + QR
+modal** for you — no custom UI.
+
+```html
+<input type="text" data-docfill="identity.full_name" />
+<input type="file" data-docfill="education.12th_marksheet" />
+
+<script src="https://cdn.jsdelivr.net/npm/docfill-sdk/dist/index.global.js"></script>
+<script>
+  DocFill.widget({ formId: 'college-admission-form-v1' });
+</script>
+```
+
+Zero-JS variant (auto-mounts a floating button):
+```html
+<script src="https://cdn.jsdelivr.net/npm/docfill-sdk/dist/index.global.js"
+        data-docfill-form="college-admission-form-v1"></script>
+```
+
+React:
+```jsx
+import { useEffect } from 'react';
+import { DocFill } from 'docfill-sdk';
+
+useEffect(() => {
+  const w = DocFill.widget({ formId: 'college-admission-form-v1', target: '#docfill-cta' });
+  return () => w.destroy();
+}, []);
+```
+
+Prefer to build your own button/modal? Use the manual `mount()` API below.
+
 ## Usage (bundler)
 
 ```js

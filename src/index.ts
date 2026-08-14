@@ -12,6 +12,7 @@ import { injectPayload, type AttachedFile } from './inject';
 import { DEFAULT_PWA_URL, DEFAULT_SUPABASE_ANON_KEY, DEFAULT_SUPABASE_URL } from './config';
 import { DocFillError, toDocFillError } from './errors';
 import { consoleLogger, silentLogger, type Logger } from './logger';
+import { mountWidget, autoInitFromScript, type WidgetOptions, type WidgetHandle } from './widget';
 import type {
   DocFillEvent,
   DocFillOptions,
@@ -34,6 +35,8 @@ export type {
 export type { AttachedFile } from './inject';
 export type { Logger } from './logger';
 export { DocFillError, type DocFillErrorCode } from './errors';
+export { mountWidget, autoInitFromScript };
+export type { WidgetOptions, WidgetHandle };
 export {
   DOCFILL_TAGS,
   TAG_MAP,
@@ -185,6 +188,17 @@ export class DocFill {
     this.sessions = null;
     this.listeners.clear();
   }
+
+  /**
+   * Drop-in widget: renders an "Autofill with DocFill" button + QR modal.
+   * `DocFill.widget({ formId: 'my-form' })` — no custom UI code needed.
+   */
+  static widget(options: WidgetOptions): WidgetHandle {
+    return mountWidget(options);
+  }
 }
+
+// UMD convenience: auto-create a widget when the script tag has data-docfill-form.
+autoInitFromScript();
 
 export default DocFill;

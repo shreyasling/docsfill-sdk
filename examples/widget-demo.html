@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DocFill Widget — one-liner demo</title>
+    <style>
+      body { font: 15px/1.5 system-ui, sans-serif; max-width: 560px; margin: 40px auto; padding: 0 16px; }
+      label { display: block; margin: 14px 0 4px; font-weight: 600; }
+      input { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; }
+      .hint { color: #666; font-size: 13px; }
+    </style>
+  </head>
+  <body>
+    <h1>Onboarding Form</h1>
+    <p class="hint">This is ALL the developer writes: tag inputs + one line. The button &amp; QR come from the SDK.</p>
+
+    <!-- Developer just tags fields -->
+    <label>Full name</label>
+    <input type="text" data-docfill="identity.full_name" />
+
+    <label>PAN</label>
+    <input type="text" data-docfill="identity.pan" />
+
+    <label>Current address</label>
+    <input type="text" data-docfill="address.current" />
+
+    <label>12th marksheet</label>
+    <input type="file" data-docfill="education.12th_marksheet" />
+
+    <!-- Load the SDK (local build here; in prod use the pinned CDN URL) -->
+    <script src="../dist/index.global.js"></script>
+    <!-- One line — the SDK renders the button and QR modal -->
+    <script>
+      DocFill.widget({
+        formId: 'onboarding-demo',
+        pwaUrl: 'https://docsfill-pwa.vercel.app',
+        target: 'body', // or omit for a floating button
+      });
+    </script>
+
+    <!--
+      Even simpler (zero JS): put the form id on the script tag itself —
+      <script src=".../index.global.js" data-docfill-form="onboarding-demo"></script>
+    -->
+  </body>
+</html>

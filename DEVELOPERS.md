@@ -8,11 +8,12 @@ For internals/architecture see [README.md](README.md).
 ## 1. What it does (30 seconds)
 
 1. You tag your form fields: `data-docfill="identity.full_name"`.
-2. You drop in the SDK and call `mount()`.
-3. The SDK renders a QR. A user scans it with the **DocFill PWA**, approves, and
-   their data (text values + real files) is filled into your form live.
+2. You add the SDK **widget** with one line — it renders an “Autofill with DocFill” button.
+3. The user clicks it, scans the QR with the **DocFill app**, approves, and their data (text
+   values + real files) fills your form live.
 
-You only ever pass a `formId`. The backend URL + key are baked into the package.
+You only ever pass a `formId`. The backend URL + key are baked into the package. The button, QR,
+modal, polling, and autofill all come from the SDK — no custom UI code.
 
 ---
 
@@ -27,30 +28,84 @@ Or, before publishing to a CDN, copy `dist/index.global.js` next to your HTML.
 **Option B — npm / bundler:**
 ```bash
 npm install docfill-sdk
-# not published yet? install the local tarball:
-npm install /path/to/docfill-sdk-0.1.3.tgz
+```
+
+Pin an exact version on the CDN (recommended in production, avoids stale cache):
+```html
+<script src="https://cdn.jsdelivr.net/npm/docfill-sdk@1.2.0/dist/index.global.js"></script>
 ```
 
 ---
 
-## 3. Minimal usage
+## 3. Quick start — the widget (recommended)
+
+The widget renders the **“⚡ Autofill with DocFill” button + QR modal** for you. Tag your inputs,
+add one line, done.
 
 ### Plain HTML
 ```html
-<div id="docfill-qr"></div>
-
 <input type="text" data-docfill="identity.full_name" />
 <input type="text" data-docfill="identity.pan" />
 <input type="file" data-docfill="education.12th_marksheet" />
 
-<script src="index.global.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docfill-sdk@1.2.0/dist/index.global.js"></script>
+<script>
+  DocFill.widget({ formId: 'college-admission-v1' });
+</script>
+```
+
+### Zero-JS (script tag only)
+Put the form id on the script tag and the widget auto-mounts a floating button:
+```html
+<script
+  src="https://cdn.jsdelivr.net/npm/docfill-sdk@1.2.0/dist/index.global.js"
+  data-docfill-form="college-admission-v1"></script>
+```
+
+### React
+```jsx
+import { useEffect } from 'react';
+import { DocFill } from 'docfill-sdk';
+
+export function OnboardingForm() {
+  useEffect(() => {
+    const widget = DocFill.widget({ formId: 'college-admission-v1', target: '#docfill-cta' });
+    return () => widget.destroy(); // clean up on unmount
+  }, []);
+
+  return (
+    <form>
+      <div id="docfill-cta" />               {/* button renders here */}
+      <input type="text" data-docfill="identity.full_name" />
+      <input type="text" data-docfill="identity.pan" />
+      <input type="file" data-docfill="education.12th_marksheet" />
+    </form>
+  );
+}
+```
+> Use **uncontrolled** inputs (no `value`/`onChange`) so the SDK can write values directly; read
+> them on submit via `FormData` or `el.value` / `el.dataset.docfillFile`.
+
+**Widget options:** `formId` (required); `target` (selector/element for the button — omit for a
+floating button); `buttonText`, `modalTitle`, `modalHint`, `autoClose`; plus any `DocFillOptions`
+(`pwaUrl`, `qrSize`, `realtime`, `debug`, …). Returns `{ open, close, destroy }`.
+
+---
+
+## 3b. Advanced — manual mount (build your own UI)
+
+If you want full control of the button/modal, use the core `mount()` and render the QR into your
+own container:
+
+```html
+<div id="docfill-qr"></div>
+<script src="https://cdn.jsdelivr.net/npm/docfill-sdk@1.2.0/dist/index.global.js"></script>
 <script>
   const docfill = new DocFill({ formId: 'college-admission-v1' });
   docfill.mount('#docfill-qr');
 </script>
 ```
 
-### React
 ```jsx
 import { useEffect, useRef } from 'react';
 import { DocFill } from 'docfill-sdk';
@@ -86,21 +141,39 @@ Same tag can appear on multiple fields — all get filled.
 
 ## 5. API reference
 
+### Widget (recommended)
+```ts
+const widget = DocFill.widget({ formId: 'my-form' /* + WidgetOptions */ });
+// widget: { open(), close(), destroy() }
+```
+`DocFill.widget(options)` (alias: `mountWidget(options)`) renders the button + QR modal.
+
+| Widget option | Default | Description |
+| --- | --- | --- |
+| `formId` | — | required; identifies your form |
+| `target` | floating | selector/element to place the button; omit for a floating button |
+| `buttonText` | `⚡ Autofill with DocFill` | trigger label |
+| `modalTitle` / `modalHint` | — | modal text |
+| `autoClose` | `true` | close the modal after a successful fill |
+| …`DocFillOptions` | — | `pwaUrl`, `qrSize`, `realtime`, `debug`, `logger`, etc. |
+
+### Core class
 ```ts
 const docfill = new DocFill({
-  formId: 'college-admission-v1', // required — identifies your form
-  // optional overrides (default to the shared DocFill backend):
-  // supabaseUrl, supabaseAnonKey, pwaUrl, scanRoot, qrSize, pollIntervalMs
+  formId: 'college-admission-v1', // required
+  // optional: supabaseUrl, supabaseAnonKey, pwaUrl, scanRoot, qrSize,
+  //           pollIntervalMs, maxPollErrors, realtime, fetchTimeoutMs, debug, logger
 });
 ```
 
 | Method / prop | What it does |
 | --- | --- |
-| `mount(target)` | Scans the DOM, creates a session, renders the QR into `target` (selector or element), starts polling. Returns a `Promise`. |
+| `mount(target)` | Scans the DOM, creates a session, renders the QR into `target`, starts polling. Returns a `Promise`. |
 | `on(event, handler)` | Subscribe. Events: `'session'`, `'filled'`, `'error'`. Returns an unsubscribe fn. |
 | `getAttachedFile(tag)` | For a file tag, returns `{ fileName, driveFileId, driveUrl, fileUrl, injected }` or `null`. |
 | `sessionId` | Current session id, or `null`. |
 | `destroy()` | Stops polling and clears listeners. Call on unmount. |
+| `DocFill.widget(opts)` | Static — renders the drop-in widget (see above). |
 
 ### Events
 ```js

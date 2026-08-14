@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DocFill Demo — On-demand Autofill</title>
+    <style>
+      :root { --brand: #2563eb; }
+      * { box-sizing: border-box; }
+      body { font: 15px/1.5 system-ui, sans-serif; color: #111; background: #f7f8fa; margin: 0; }
+      .wrap { max-width: 560px; margin: 40px auto; padding: 0 16px; }
+      .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 24px; }
+      h1 { margin: 0 0 4px; font-size: 22px; }
+      .sub { color: #666; font-size: 13px; margin: 0 0 20px; }
+      label { display: block; margin: 16px 0 4px; font-weight: 600; font-size: 14px; }
+      input { width: 100%; padding: 10px; font-size: 15px; border: 1px solid #cbd5e1; border-radius: 8px; }
+      .row { display: flex; gap: 12px; }
+      .row > div { flex: 1; }
+      .btn { border: 0; border-radius: 9px; padding: 11px 16px; font-size: 15px; font-weight: 600; cursor: pointer; }
+      .btn-brand { background: var(--brand); color: #fff; }
+      .btn-ghost { background: #eef2ff; color: var(--brand); }
+      .btn-dark { background: #111; color: #fff; }
+      .actions { margin-top: 22px; display: flex; gap: 10px; }
+
+      /* On-demand QR panel */
+      .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: center; justify-content: center; padding: 16px; }
+      .overlay.open { display: flex; }
+      .panel { background: #fff; border-radius: 16px; padding: 24px; width: 340px; text-align: center; }
+      .panel h2 { margin: 0 0 4px; font-size: 18px; }
+      .panel .hint { color: #666; font-size: 13px; margin: 0 0 16px; }
+      #qr { min-height: 220px; display: flex; align-items: center; justify-content: center; }
+      .status { margin: 14px 0; font-size: 13px; color: #333; min-height: 18px; }
+      .close { margin-top: 8px; background: #f1f5f9; color: #111; }
+      a.open-link { display: inline-block; margin-top: 8px; font-size: 12px; color: var(--brand); word-break: break-all; }
+      pre { text-align: left; background: #0b1020; color: #d7e0ff; padding: 12px; border-radius: 8px; font-size: 12px; overflow: auto; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="card">
+        <h1>College Admission Form</h1>
+        <p class="sub">Powered by <strong>docfill-sdk</strong> — fill this form by scanning a QR with the DocFill app.</p>
+
+        <!-- On-demand trigger: the QR only appears when this is clicked -->
+        <button id="autofill-btn" class="btn btn-ghost" type="button">⚡ Autofill with DocFill</button>
+
+        <form id="form">
+          <label>Full name</label>
+          <input type="text" data-docfill="identity.full_name" />
+
+          <label>Father's name</label>
+          <input type="text" data-docfill="identity.father_name" />
+
+          <div class="row">
+            <div>
+              <label>Date of birth</label>
+              <input type="date" data-docfill="identity.dob" />
+            </div>
+            <div>
+              <label>PAN</label>
+              <input type="text" data-docfill="identity.pan" />
+            </div>
+          </div>
+
+          <label>Current address</label>
+          <input type="text" data-docfill="address.current" />
+
+          <label>12th marksheet</label>
+          <input type="file" data-docfill="education.12th_marksheet" />
+
+          <label>Passport-size photo</label>
+          <input type="file" data-docfill="photo.passport_size" />
+
+          <div class="actions">
+            <button class="btn btn-dark" type="submit">Submit form</button>
+          </div>
+        </form>
+
+        <h3 style="margin-top:22px;font-size:15px">Submission (what your backend receives)</h3>
+        <pre id="result">Not submitted yet.</pre>
+      </div>
+    </div>
+
+    <!-- QR panel (hidden until "Autofill with DocFill" is clicked) -->
+    <div id="overlay" class="overlay">
+      <div class="panel">
+        <h2>Scan with the DocFill app</h2>
+        <p class="hint">Approve on your phone and this form fills instantly.</p>
+        <div id="qr"></div>
+        <div id="status" class="status">Preparing…</div>
+        <a id="open-link" class="open-link" href="#" target="_blank" rel="noopener" style="display:none">Same-device? Open the fill link →</a>
+        <div>
+          <button id="close-btn" class="btn close" type="button">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Published package, pinned to an exact version (immutable, always fresh) -->
+    <script src="https://cdn.jsdelivr.net/npm/docfill-sdk@1.1.3/dist/index.global.js"></script>
+    <script>
+      // IMPORTANT: the QR encodes this URL. It MUST be your PWA's real address,
+      // or the PWA scanner will reject it as "not a DocFill form QR".
+      //   - Deployed PWA (phone scanning): 'https://docsfill-pwa.vercel.app'
+      //   - Same device (laptop) local dev: 'http://localhost:5173'
+      const PWA_URL = 'https://docsfill-pwa.vercel.app';
+
+      const overlay = document.getElementById('overlay');
+      const statusEl = document.getElementById('status');
+      const openLink = document.getElementById('open-link');
+      let docfill = null;
+
+      function openPanel() {
+        overlay.classList.add('open');
+        statusEl.textContent = 'Preparing…';
+
+        // Create a fresh instance each time the panel opens.
+        docfill = new DocFill({
+          formId: 'college-admission-demo',
+          pwaUrl: PWA_URL,
+        });
+
+        docfill.on('session', (s) => {
+          statusEl.textContent = 'Waiting for approval…';
+          openLink.href = s.fillUrl;
+          openLink.style.display = 'inline-block';
+        });
+        docfill.on('filled', () => {
+          statusEl.textContent = 'Filled ✓';
+          setTimeout(closePanel, 1200);
+        });
+        docfill.on('error', (e) => {
+          statusEl.textContent = 'Error: ' + (e && e.message ? e.message : e);
+        });
+
+        docfill.mount('#qr').catch((e) => {
+          statusEl.textContent = 'Could not start: ' + (e && e.message ? e.message : e);
+        });
+      }
+
+      function closePanel() {
+        overlay.classList.remove('open');
+        openLink.style.display = 'none';
+        if (docfill) { docfill.destroy(); docfill = null; } // stop polling & clean up
+      }
+
+      document.getElementById('autofill-btn').addEventListener('click', openPanel);
+      document.getElementById('close-btn').addEventListener('click', closePanel);
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) closePanel(); });
+
+      // Submit: collect text values + file references (Drive/Storage).
+      document.getElementById('form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const out = { formId: 'college-admission-demo', fields: {} };
+        document.querySelectorAll('[data-docfill]').forEach((el) => {
+          const tag = el.dataset.docfill;
+          // The SDK stamps file refs onto the element, so this works even after destroy().
+          if (el.dataset.docfillFile) {
+            out.fields[tag] = { type: 'file', ...JSON.parse(el.dataset.docfillFile) };
+          } else {
+            out.fields[tag] = { type: 'text', value: el.value || null };
+          }
+        });
+        document.getElementById('result').textContent = JSON.stringify(out, null, 2);
+      });
+    </script>
+  </body>
+</html>

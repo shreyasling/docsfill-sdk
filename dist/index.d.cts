@@ -516,6 +516,31 @@ interface AttachedFile {
     injected?: boolean;
 }
 
+interface WidgetOptions extends DocFillOptions {
+    /** Where to place the trigger button (selector/element). Omit for a floating button. */
+    target?: string | HTMLElement;
+    /** Button label. Default "⚡ Autofill with DocFill". */
+    buttonText?: string;
+    /** Modal heading. Default "Scan with the DocFill app". */
+    modalTitle?: string;
+    /** Modal subtitle. */
+    modalHint?: string;
+    /** Auto-close the modal after a successful fill. Default true. */
+    autoClose?: boolean;
+}
+interface WidgetHandle {
+    open(): void;
+    close(): void;
+    destroy(): void;
+}
+declare function mountWidget(options: WidgetOptions): WidgetHandle;
+/**
+ * UMD convenience: if the SDK <script> tag carries `data-docfill-form`, create a
+ * floating widget automatically — zero JS for the developer.
+ *   <script src="…docfill.global.js" data-docfill-form="my-form"></script>
+ */
+declare function autoInitFromScript(): void;
+
 /** Typed error surface for the DocFill SDK. */
 type DocFillErrorCode = 'MISSING_OPTION' | 'MOUNT_TARGET_NOT_FOUND' | 'NO_FIELDS' | 'SESSION_CREATE_FAILED' | 'SESSION_READ_FAILED' | 'SESSION_EXPIRED' | 'POLL_ABANDONED' | 'DESTROYED';
 declare class DocFillError extends Error {
@@ -557,6 +582,11 @@ declare class DocFill {
     get sessionId(): string | null;
     /** Stop listening and clean up subscriptions/timers. */
     destroy(): void;
+    /**
+     * Drop-in widget: renders an "Autofill with DocFill" button + QR modal.
+     * `DocFill.widget({ formId: 'my-form' })` — no custom UI code needed.
+     */
+    static widget(options: WidgetOptions): WidgetHandle;
 }
 
-export { type AttachedFile, DOCFILL_TAGS, DocFill, DocFillError, type DocFillErrorCode, type DocFillEvent, type DocFillOptions, type DocFillTag, type FieldPayload, type FileFieldPayload, type FilledEvent, type FilledPayload, type Logger, type SessionRow, type SessionStatus, TAG_GROUPS, TAG_MAP, TAG_SCHEMA_VERSION, type TagDef, type TextFieldPayload, DocFill as default, isFileTag };
+export { type AttachedFile, DOCFILL_TAGS, DocFill, DocFillError, type DocFillErrorCode, type DocFillEvent, type DocFillOptions, type DocFillTag, type FieldPayload, type FileFieldPayload, type FilledEvent, type FilledPayload, type Logger, type SessionRow, type SessionStatus, TAG_GROUPS, TAG_MAP, TAG_SCHEMA_VERSION, type TagDef, type TextFieldPayload, type WidgetHandle, type WidgetOptions, autoInitFromScript, DocFill as default, isFileTag, mountWidget };

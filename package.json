@@ -1,6 +1,6 @@
 {
   "name": "docfill-sdk",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "Framework-agnostic SDK that turns any tagged web form into a QR-driven autofill target backed by the DocFill PWA + Supabase.",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -38,6 +38,18 @@
     "sdk"
   ],
   "license": "MIT",
+  "author": "shreyasling",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shreyasling/docsfill-sdk.git"
+  },
+  "homepage": "https://github.com/shreyasling/docsfill-sdk#readme",
+  "bugs": {
+    "url": "https://github.com/shreyasling/docsfill-sdk/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
     "qrcode": "^1.5.4"
