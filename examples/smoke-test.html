@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DocFill SDK — UMD smoke test</title>
+    <style>
+      body { font: 15px/1.5 system-ui, sans-serif; max-width: 640px; margin: 40px auto; padding: 0 16px; }
+      label { display: block; margin: 16px 0 4px; font-weight: 600; }
+      input { width: 100%; padding: 8px; font-size: 15px; box-sizing: border-box; }
+      #docfill-qr-container { margin: 24px 0; }
+      .hint { color: #666; font-size: 13px; }
+      button { margin-top: 20px; padding: 10px 18px; font-size: 15px; font-weight: 600; cursor: pointer; border: 0; border-radius: 8px; background: #111; color: #fff; }
+      pre { background: #0b1020; color: #d7e0ff; padding: 12px; border-radius: 8px; overflow: auto; font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <h1>College Admission Form (demo)</h1>
+    <p class="hint">Scan the QR with the DocFill PWA, or edit the session row in Supabase to test live fill.</p>
+
+    <div id="docfill-status" style="margin:12px 0;padding:10px 12px;border-radius:8px;background:#f3f4f6;font-size:13px;white-space:pre-wrap;word-break:break-word;">Starting…</div>
+
+    <div id="docfill-qr-container"></div>
+    <p class="hint">Same-device test: <a id="docfill-open" href="#" target="_blank" rel="noopener">open the fill link in the PWA</a> (includes the capability token).</p>
+
+    <label>Full name</label>
+    <input type="text" data-docfill="identity.full_name" />
+
+    <label>PAN</label>
+    <input type="text" data-docfill="identity.pan" />
+
+    <label>12th marksheet</label>
+    <input type="file" data-docfill="education.12th_marksheet" />
+
+    <button id="docfill-submit" type="button">Submit form</button>
+
+    <h3 style="margin-top:24px">Captured submission (proof of upload)</h3>
+    <p class="hint">This is exactly what your real form's submit handler receives: text values inline, files as Drive references.</p>
+    <pre id="docfill-result">Not submitted yet.</pre>
+
+    <!-- Local build: run `npm run build` first, then open this file. -->
+    <script src="../dist/index.global.js?v=8"></script>
+    <script>
+      const statusEl = document.getElementById('docfill-status');
+      const setStatus = (msg, ok) => {
+        statusEl.textContent = msg;
+        statusEl.style.background = ok === false ? '#fde8e8' : ok ? '#e7f7ee' : '#f3f4f6';
+        statusEl.style.color = ok === false ? '#a51111' : '#111';
+      };
+
+      const docfill = new DocFill({
+        formId: 'college-admission-form-v1',
+        pwaUrl: 'http://localhost:5173', // local PWA for same-device testing
+      });
+
+      docfill.on('session', (s) => {
+        console.log('session created:', s);
+        window.__fillUrl = s.fillUrl; // test convenience: exposes the capability token
+        const link = document.getElementById('docfill-open');
+        link.href = s.fillUrl;
+        setStatus('Session created: ' + s.sessionId + '\nRequired tags: ' + s.requiredTags.join(', ') + '\nWaiting for fill…', true);
+      });
+      docfill.on('filled', (e) => {
+        console.log('filled:', e.payload);
+        setStatus('Filled! Fields injected above.', true);
+      });
+      docfill.on('error', (err) => {
+        console.error('docfill error:', err);
+        setStatus('ERROR: ' + (err && err.message ? err.message : String(err)), false);
+      });
+
+      docfill.mount('#docfill-qr-container').catch((err) => {
+        setStatus('mount() failed: ' + (err && err.message ? err.message : String(err)), false);
+      });
+
+      // Submit: collect every tagged field's value (text) or Drive reference (file),
+      // show it, and persist it to the dummy-data folder via the demo server.
+      document.getElementById('docfill-submit').addEventListener('click', async () => {
+        const submission = { formId: 'college-admission-form-v1', sessionId: docfill.sessionId, submittedAt: new Date().toISOString(), fields: {} };
+        document.querySelectorAll('[data-docfill]').forEach((el) => {
+          const tag = el.dataset.docfill;
+          const fileRef = docfill.getAttachedFile(tag);
+          if (fileRef) submission.fields[tag] = { type: 'file', ...fileRef };
+          else submission.fields[tag] = { type: 'text', value: el.value || null };
+        });
+
+        const resultEl = document.getElementById('docfill-result');
+        resultEl.textContent = JSON.stringify(submission, null, 2);
+
+        try {
+          const res = await fetch('/examples/dummy-data/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(submission),
+          });
+          const info = await res.json().catch(() => ({}));
+          setStatus('Submitted ✓ saved to ' + (info.savedTo || 'dummy-data/'), true);
+        } catch (e) {
+          setStatus('Submitted (shown above). Save endpoint not running — run `node examples/dev-server.mjs`.', false);
+        }
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,2 @@
+DocFill demo document — pretend this is a scanned 12th marksheet PDF.
+Used to prove the SDK injects a REAL file into the native file input.

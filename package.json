@@ -1,0 +1,52 @@
+{
+  "name": "docfill-sdk",
+  "version": "1.1.1",
+  "description": "Framework-agnostic SDK that turns any tagged web form into a QR-driven autofill target backed by the DocFill PWA + Supabase.",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "unpkg": "./dist/index.global.js",
+  "jsdelivr": "./dist/index.global.js",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "tags.json"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "postbuild": "node scripts/gen-tags.mjs",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "gen:tags": "node scripts/gen-tags.mjs",
+    "prepublishOnly": "npm run typecheck && npm run test && npm run build"
+  },
+  "keywords": [
+    "docfill",
+    "autofill",
+    "forms",
+    "qr",
+    "supabase",
+    "sdk"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "@types/qrcode": "^1.5.5",
+    "jsdom": "^25.0.0",
+    "tsup": "^8.3.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}
